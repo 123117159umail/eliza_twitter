@@ -10,6 +10,7 @@ import {
     type HttpTransport,
     type Address,
     Account,
+    PrivateKeyAccount,
 } from "viem";
 import * as viemChains from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
@@ -19,7 +20,7 @@ import type { SupportedChain } from "../types";
 export class WalletProvider {
     private currentChain: SupportedChain = "mainnet";
     chains: Record<string, Chain> = { mainnet: viemChains.mainnet };
-    account: Account;
+    account: PrivateKeyAccount;
 
     constructor(privateKey: `0x${string}`, chains?: Record<string, Chain>) {
         this.setAccount(privateKey);
@@ -38,15 +39,25 @@ export class WalletProvider {
         return this.chains[this.currentChain];
     }
 
-    getPublicClient(
-        chainName: SupportedChain
-    ): PublicClient<HttpTransport, Chain, Account | undefined> {
-        const { publicClient } = this.createClients(chainName);
+    getPublicClient(chainName: SupportedChain): PublicClient<HttpTransport, Chain, Account | undefined> {
+        const transport = this.createHttpTransport(chainName);
+
+        const publicClient = createPublicClient({
+            chain: this.chains[chainName],
+            transport,
+        })
         return publicClient;
     }
 
-    getWalletClient(chainName: SupportedChain): WalletClient {
-        const { walletClient } = this.createClients(chainName);
+    getWalletClient(chainName: SupportedChain):WalletClient {
+        const transport = this.createHttpTransport(chainName);
+
+        const walletClient = createWalletClient({
+            chain: this.chains[chainName],
+            transport,
+            account: this.account,
+        })
+
         return walletClient;
     }
 
@@ -127,23 +138,6 @@ export class WalletProvider {
             return http(chain.rpcUrls.custom.http[0]);
         }
         return http(chain.rpcUrls.default.http[0]);
-    };
-
-    private createClients = (chain: SupportedChain) => {
-        const transport = this.createHttpTransport(chain);
-
-        return {
-            chain: this.chains[chain],
-            publicClient: createPublicClient({
-                chain: this.chains[chain],
-                transport,
-            }),
-            walletClient: createWalletClient<HttpTransport>({
-                chain: this.chains[chain],
-                transport,
-                account: this.account,
-            }),
-        };
     };
 
     static genChainFromName(
